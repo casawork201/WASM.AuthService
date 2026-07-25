@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../build/TestWASM.AuthLib.props" />
-</Project>
