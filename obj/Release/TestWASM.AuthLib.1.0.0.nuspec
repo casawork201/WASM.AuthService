@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>TestWASM.AuthLib</id>
+    <version>1.0.0</version>
+    <authors>Joepril Sobrevega</authors>
+    <description>Reusable client-side JWT auth (login, refresh, Bearer attach) for Blazor WASM.</description>
+    <repository type="git" commit="0ad894a8e6f8135705332abf6355776d7e2d7c19" />
+    <dependencies>
+      <group targetFramework="net10.0">
+        <dependency id="Microsoft.AspNetCore.Components.Authorization" version="10.0.10" exclude="Build,Analyzers" />
+        <dependency id="Microsoft.AspNetCore.Components.Web" version="10.0.10" exclude="Build,Analyzers" />
+        <dependency id="Microsoft.AspNetCore.Components.WebAssembly" version="10.0.10" exclude="Build,Analyzers" />
+        <dependency id="Microsoft.Extensions.Http" version="10.0.10" exclude="Build,Analyzers" />
+        <dependency id="System.IdentityModel.Tokens.Jwt" version="8.21.0" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="/home/alterego/Desktop/TestWASM.AuthLib/bin/Release/net10.0/TestWASM.AuthLib.dll" target="lib/net10.0/TestWASM.AuthLib.dll" />
+    <file src="/home/alterego/Desktop/TestWASM.AuthLib/wwwroot/background.png" target="staticwebassets/background.png" />
+    <file src="/home/alterego/Desktop/TestWASM.AuthLib/wwwroot/exampleJsInterop.js" target="staticwebassets/exampleJsInterop.js" />
+    <file src="/home/alterego/Desktop/TestWASM.AuthLib/obj/Release/net10.0/staticwebassets/msbuild.TestWASM.AuthLib.Microsoft.AspNetCore.StaticWebAssetEndpoints.props" target="build/Microsoft.AspNetCore.StaticWebAssetEndpoints.props" />
+    <file src="/home/alterego/Desktop/TestWASM.AuthLib/obj/Release/net10.0/staticwebassets/msbuild.TestWASM.AuthLib.Microsoft.AspNetCore.StaticWebAssets.props" target="build/Microsoft.AspNetCore.StaticWebAssets.props" />
+    <file src="/home/alterego/Desktop/TestWASM.AuthLib/obj/Release/net10.0/staticwebassets/msbuild.build.TestWASM.AuthLib.props" target="build/TestWASM.AuthLib.props" />
+    <file src="/home/alterego/Desktop/TestWASM.AuthLib/obj/Release/net10.0/staticwebassets/msbuild.buildMultiTargeting.TestWASM.AuthLib.props" target="buildMultiTargeting/TestWASM.AuthLib.props" />
+    <file src="/home/alterego/Desktop/TestWASM.AuthLib/obj/Release/net10.0/staticwebassets/msbuild.buildTransitive.TestWASM.AuthLib.props" target="buildTransitive/TestWASM.AuthLib.props" />
+  </files>
+</package>

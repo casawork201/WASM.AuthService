@@ -1,0 +1,34 @@
+﻿@using TestWASM.AuthLib.Services
+
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject AuthService AuthService
+@inject NavigationManager Nav
+@implements IDisposable
+
+@if (!AuthService.IsLoggedIn)
+{
+    <a class="nav-link" href="login">Login</a>
+}
+else
+{
+    <span class="nav-link">Hello, @AuthService.Email</span>
+    <a class="nav-link" href="" @onclick="Logout" @onclick:preventDefault>Logout</a>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        AuthService.OnChange += StateHasChanged;
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        AuthService.OnChange -= StateHasChanged;
+    }
+}

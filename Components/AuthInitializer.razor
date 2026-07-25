@@ -1,0 +1,10 @@
+﻿@using TestWASM.AuthLib.Services
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject AuthService AuthService
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+    }
+}
