@@ -1,6 +1,7 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using TestWASM.AuthLib.Models;
 
@@ -11,6 +12,7 @@ public class AuthService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IJSRuntime _js;
+    private readonly ILogger<AuthService> _logger;
     private const string TokenKey = "auth_token";
     private const string RefreshKey = "auth_refresh_token";
     private const string EmailKey = "auth_email";
@@ -23,11 +25,13 @@ public class AuthService
 
     public event Action? OnChange;
 
-    public AuthService(IHttpClientFactory httpClientFactory, IJSRuntime js)
+    public AuthService(IHttpClientFactory httpClientFactory, IJSRuntime js, ILogger<AuthService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _js = js;
+        _logger = logger;
     }
+    public bool IsInitialized { get; private set; }
 
     public async Task InitializeAsync()
     {
@@ -37,17 +41,17 @@ public class AuthService
             RefreshToken = await _js.InvokeAsync<string?>("localStorage.getItem", RefreshKey);
             Email = await _js.InvokeAsync<string?>("localStorage.getItem", EmailKey);
 
-            Console.WriteLine($"[AuthService.Init] Loaded from storage — Email='{Email}', HasToken={!string.IsNullOrEmpty(AccessToken)}, HasRefresh={!string.IsNullOrEmpty(RefreshToken)}");
+            Console.WriteLine($"[AuthService.Init] Loaded — Email='{Email}', HasToken={!string.IsNullOrEmpty(AccessToken)}, HasRefresh={!string.IsNullOrEmpty(RefreshToken)}");
 
             if (!string.IsNullOrEmpty(AccessToken))
             {
                 if (IsExpired(AccessToken))
                 {
-                    Console.WriteLine("[AuthService.Init] Stored token expired, attempting refresh...");
+                    Console.WriteLine("[AuthService.Init] Token expired, refreshing...");
                     var refreshed = await TryRefreshAsync();
                     if (!refreshed)
                     {
-                        Console.WriteLine("[AuthService.Init] Refresh failed, clearing session.");
+                        Console.WriteLine("[AuthService.Init] Refresh failed, clearing.");
                         await ClearAsync();
                     }
                 }
@@ -56,14 +60,17 @@ public class AuthService
                     Roles = ExtractRoles(AccessToken);
                 }
             }
+
+            IsInitialized = true;
             OnChange?.Invoke();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[AuthService.Init] Exception: {ex.Message}");
+            _logger.LogError(ex, "[AuthService.Init] Error initializing auth state from storage.");
+            // Console.WriteLine($"[AuthService.Init] Exception: {ex.Message}");
+            IsInitialized = true; // still mark initialized so callers don't hang forever retrying
         }
     }
-
     public async Task<(bool Success, string? Error)> LoginAsync(string email, string password)
     {
         var client = _httpClientFactory.CreateClient("AuthApi");
@@ -74,7 +81,7 @@ public class AuthService
         });
 
         var raw = await response.Content.ReadAsStringAsync();
-        Console.WriteLine($"[AuthService.Login] Status={response.StatusCode} Body={raw}");
+        _logger.LogDebug($"[AuthService.Login] Status={response.StatusCode} Body={raw}");
 
         if (!response.IsSuccessStatusCode)
             return (false, "Invalid email or password");
@@ -85,14 +92,15 @@ public class AuthService
             data = JsonSerializer.Deserialize<TokenResponseDto>(raw, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
         catch (Exception ex)
-        {
-            Console.WriteLine($"[AuthService.Login] Deserialize failed: {ex.Message}");
+        {   
+            _logger.LogError("[AuthService.Login] Serialization Failed.");
+            //Console.WriteLine($"[AuthService.Login] Deserialize failed: {ex.Message}");
             return (false, "Could not parse server response");
         }
 
         if (data is null || string.IsNullOrEmpty(data.Token))
         {
-            Console.WriteLine("[AuthService.Login] Token missing in response.");
+            //Console.WriteLine("[AuthService.Login] Token missing in response.");
             return (false, "Unexpected response from auth server");
         }
 
