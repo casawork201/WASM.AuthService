@@ -104,7 +104,7 @@ public class AuthService
             return (false, "Unexpected response from auth server");
         }
 
-        Console.WriteLine($"[AuthService.Login] Parsed — Token(len)={data.Token.Length}, RefreshToken='{data.RefreshToken}', ResponseEmail='{data.Email}', Roles=[{string.Join(",", data.Roles ?? new())}]");
+        //Console.WriteLine($"[AuthService.Login] Parsed — Token(len)={data.Token.Length}, RefreshToken='{data.RefreshToken}', ResponseEmail='{data.Email}', Roles=[{string.Join(",", data.Roles ?? new())}]");
 
         var effectiveEmail = string.IsNullOrEmpty(data.Email) ? email : data.Email;
         await SetSessionAsync(data.Token, data.RefreshToken, effectiveEmail, data.Roles ?? new());
