@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using TestWASM.AuthLib.Models;
 
-
 namespace TestWASM.AuthLib.Services;
 
 public class AuthService
@@ -13,6 +12,7 @@ public class AuthService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IJSRuntime _js;
     private readonly ILogger<AuthService> _logger;
+
     private const string TokenKey = "auth_token";
     private const string RefreshKey = "auth_refresh_token";
     private const string EmailKey = "auth_email";
@@ -22,6 +22,7 @@ public class AuthService
     public string? Email { get; private set; }
     public List<string> Roles { get; private set; } = new();
     public bool IsLoggedIn => !string.IsNullOrEmpty(AccessToken);
+    public bool IsInitialized { get; private set; }
 
     public event Action? OnChange;
 
@@ -31,27 +32,27 @@ public class AuthService
         _js = js;
         _logger = logger;
     }
-    public bool IsInitialized { get; private set; }
 
     public async Task InitializeAsync()
     {
+        if (IsInitialized) return;
+
         try
         {
             AccessToken = await _js.InvokeAsync<string?>("localStorage.getItem", TokenKey);
             RefreshToken = await _js.InvokeAsync<string?>("localStorage.getItem", RefreshKey);
             Email = await _js.InvokeAsync<string?>("localStorage.getItem", EmailKey);
 
-            Console.WriteLine($"[AuthService.Init] Loaded — Email='{Email}', HasToken={!string.IsNullOrEmpty(AccessToken)}, HasRefresh={!string.IsNullOrEmpty(RefreshToken)}");
+            _logger.LogDebug("[AuthService.Init] Session restored. Authenticated: {IsLoggedIn}", IsLoggedIn);
 
             if (!string.IsNullOrEmpty(AccessToken))
             {
                 if (IsExpired(AccessToken))
                 {
-                    Console.WriteLine("[AuthService.Init] Token expired, refreshing...");
+                    _logger.LogDebug("[AuthService.Init] Stored token expired, attempting background refresh...");
                     var refreshed = await TryRefreshAsync();
                     if (!refreshed)
                     {
-                        Console.WriteLine("[AuthService.Init] Refresh failed, clearing.");
                         await ClearAsync();
                     }
                 }
@@ -60,17 +61,18 @@ public class AuthService
                     Roles = ExtractRoles(AccessToken);
                 }
             }
-
-            IsInitialized = true;
-            OnChange?.Invoke();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "[AuthService.Init] Error initializing auth state from storage.");
-            // Console.WriteLine($"[AuthService.Init] Exception: {ex.Message}");
-            IsInitialized = true; // still mark initialized so callers don't hang forever retrying
+        }
+        finally
+        {
+            IsInitialized = true;
+            OnChange?.Invoke();
         }
     }
+
     public async Task<(bool Success, string? Error)> LoginAsync(string email, string password)
     {
         var client = _httpClientFactory.CreateClient("AuthApi");
@@ -80,11 +82,12 @@ public class AuthService
             Password = password
         });
 
-        var raw = await response.Content.ReadAsStringAsync();
-        _logger.LogDebug($"[AuthService.Login] Status={response.StatusCode} Body={raw}");
+        _logger.LogDebug("[AuthService.Login] Response Status: {StatusCode}", response.StatusCode);
 
         if (!response.IsSuccessStatusCode)
             return (false, "Invalid email or password");
+
+        var raw = await response.Content.ReadAsStringAsync();
 
         TokenResponseDto? data;
         try
@@ -92,34 +95,27 @@ public class AuthService
             data = JsonSerializer.Deserialize<TokenResponseDto>(raw, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
         catch (Exception ex)
-        {   
-            _logger.LogError("[AuthService.Login] Serialization Failed.");
-            //Console.WriteLine($"[AuthService.Login] Deserialize failed: {ex.Message}");
+        {
+            _logger.LogError(ex, "[AuthService.Login] Failed to deserialize auth response.");
             return (false, "Could not parse server response");
         }
 
         if (data is null || string.IsNullOrEmpty(data.Token))
         {
-            //Console.WriteLine("[AuthService.Login] Token missing in response.");
             return (false, "Unexpected response from auth server");
         }
 
-        //Console.WriteLine($"[AuthService.Login] Parsed — Token(len)={data.Token.Length}, RefreshToken='{data.RefreshToken}', ResponseEmail='{data.Email}', Roles=[{string.Join(",", data.Roles ?? new())}]");
-
         var effectiveEmail = string.IsNullOrEmpty(data.Email) ? email : data.Email;
         await SetSessionAsync(data.Token, data.RefreshToken, effectiveEmail, data.Roles ?? new());
+        
+        _logger.LogInformation("[AuthService.Login] User login successful.");
         return (true, null);
     }
 
     public async Task<bool> TryRefreshAsync()
     {
-        Console.WriteLine($"[AuthService.Refresh] Attempting refresh — Email='{Email}', HasRefreshToken={!string.IsNullOrEmpty(RefreshToken)}");
-
         if (string.IsNullOrEmpty(Email) || string.IsNullOrEmpty(RefreshToken))
-        {
-            Console.WriteLine("[AuthService.Refresh] Aborting — missing Email or RefreshToken.");
             return false;
-        }
 
         var client = _httpClientFactory.CreateClient("AuthApi");
         var response = await client.PostAsJsonAsync("api/auth/refresh-token", new RefreshTokenRequestDto
@@ -128,11 +124,12 @@ public class AuthService
             RefreshToken = RefreshToken
         });
 
-        var raw = await response.Content.ReadAsStringAsync();
-        Console.WriteLine($"[AuthService.Refresh] Status={response.StatusCode} Body={raw}");
+        _logger.LogDebug("[AuthService.Refresh] Response Status: {StatusCode}", response.StatusCode);
 
         if (!response.IsSuccessStatusCode)
             return false;
+
+        var raw = await response.Content.ReadAsStringAsync();
 
         TokenResponseDto? data;
         try
@@ -165,8 +162,6 @@ public class AuthService
         if (!string.IsNullOrEmpty(refreshToken))
             await _js.InvokeVoidAsync("localStorage.setItem", RefreshKey, refreshToken);
         await _js.InvokeVoidAsync("localStorage.setItem", EmailKey, email);
-
-        Console.WriteLine($"[AuthService.SetSession] Stored — Email='{email}', RefreshToken='{refreshToken}'");
 
         OnChange?.Invoke();
     }
