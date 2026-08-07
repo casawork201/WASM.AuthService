@@ -10,31 +10,52 @@
 {
     <div class="nav-item px-3">
         <NavLink class="nav-link" href="/login">
-            <span class="bi bi-box-arrow-in-right-nav-menu" aria-hidden="true"></span> Login
+            <span class="bi bi-box-arrow-in-right-nav-menu" aria-hidden="true"></span> Login 🔑
         </NavLink>
     </div>
 }
 else
 {
     <div class="nav-item px-3 auth-user-block">
-        <div class="auth-user-info">
+        <div class="auth-user-info" @onclick="ToggleConfirm" role="button" title="Click to log out">
             <span class="auth-avatar">@GetInitial()</span>
             <span class="auth-email" title="@AuthService.Email">@AuthService.Email</span>
         </div>
-        <a class="nav-link auth-logout-link" href="" @onclick="Logout" @onclick:preventDefault>
-            <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Logout
-        </a>
+
+        @if (showConfirm)
+        {
+            <div class="logout-confirm-box">
+                <span class="confirm-text">Log out? 🚪</span>
+                <div class="confirm-actions">
+                    <button class="btn-confirm btn-yes" @onclick="Logout" type="button">Yes ✅</button>
+                    <button class="btn-confirm btn-no" @onclick="CancelLogout" type="button">No ❌</button>
+                </div>
+            </div>
+        }
     </div>
 }
 
 @code {
+    private bool showConfirm = false;
+
     protected override void OnInitialized()
     {
         AuthService.OnChange += StateHasChanged;
     }
 
+    private void ToggleConfirm()
+    {
+        showConfirm = !showConfirm;
+    }
+
+    private void CancelLogout()
+    {
+        showConfirm = false;
+    }
+
     private async Task Logout()
     {
+        showConfirm = false;
         await AuthService.LogoutAsync();
         Nav.NavigateTo("/", forceLoad: true);
     }
@@ -62,8 +83,15 @@ else
         display: flex;
         align-items: center;
         gap: 0.6rem;
-        padding: 0.4rem 0;
+        padding: 0.4rem 0.5rem;
         margin-bottom: 0.25rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .auth-user-info:hover {
+        background: rgba(255, 255, 255, 0.08);
     }
 
     .auth-avatar {
@@ -89,15 +117,56 @@ else
         white-space: nowrap;
     }
 
-    .auth-logout-link {
+    .logout-confirm-box {
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        margin-top: 0.35rem;
         display: flex;
-        align-items: center;
-        opacity: 0.85;
-        transition: opacity 0.15s ease;
+        flex-direction: column;
+        gap: 0.4rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
 
-    .auth-logout-link:hover {
-        opacity: 1;
-        color: #ff6b6b !important;
+    .confirm-text {
+        font-size: 0.8rem;
+        color: #cbd5e1;
+        font-weight: 600;
+    }
+
+    .confirm-actions {
+        display: flex;
+        gap: 0.4rem;
+    }
+
+    .btn-confirm {
+        flex: 1;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        transition: all 0.15s ease;
+    }
+
+    .btn-yes {
+        background-color: #ef4444;
+        color: #fff;
+    }
+
+    .btn-yes:hover {
+        background-color: #dc2626;
+    }
+
+    .btn-no {
+        background-color: #334155;
+        color: #cbd5e1;
+    }
+
+    .btn-no:hover {
+        background-color: #475569;
+        color: #fff;
     }
 </style>

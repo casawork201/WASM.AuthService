@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>TestWASM.AuthLib</PackageId>
-    <Version>1.0.6</Version>
+    <Version>1.0.7</Version>
     <Authors>Joepril Sobrevega</Authors>
     <Description>Reusable client-side JWT auth (login, refresh, Bearer attach) for Blazor WASM.</Description>
   </PropertyGroup>
