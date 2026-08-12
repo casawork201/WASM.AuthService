@@ -114,6 +114,50 @@ public class AuthService
         _logger.LogInformation("[AuthService.Login] User login successful.");
         return (true, null);
     }
+
+    // public async Task<(bool Success, string? Error)> RegisterAsync(RegisterRequestDto model)
+    // {
+    //     var client = _httpClientFactory.CreateClient("AuthApi");
+    //     var response = await client.PostAsJsonAsync("api/auth/register", model);
+
+    //     _logger.LogDebug("[AuthService.Register] Response Status: {StatusCode}", response.StatusCode);
+
+    //     if (response.IsSuccessStatusCode)
+    //     {
+    //         _logger.LogInformation("[AuthService.Register] Registration successful.");
+    //         return (true, null);
+    //     }
+
+    //     var raw = await response.Content.ReadAsStringAsync();
+    //     _logger.LogWarning("[AuthService.Register] Registration failed: {Body}", raw);
+
+    //     // 💡 Extract specific error messages (e.g., string message or Identity error list)
+    //     string errorMsg = "Registration failed. Please check your details and try again.";
+    //     try
+    //     {
+    //         using var doc = JsonDocument.Parse(raw);
+    //         if (doc.RootElement.ValueKind == JsonValueKind.Array)
+    //         {
+    //             var errors = new List<string>();
+    //             foreach (var elem in doc.RootElement.EnumerateArray())
+    //             {
+    //                 if (elem.TryGetProperty("description", out var desc))
+    //                     errors.Add(desc.GetString() ?? "");
+    //             }
+    //             if (errors.Count > 0) errorMsg = string.Join(" ", errors);
+    //         }
+    //         else if (doc.RootElement.ValueKind == JsonValueKind.String)
+    //         {
+    //             errorMsg = doc.RootElement.GetString() ?? errorMsg;
+    //         }
+    //     }
+    //     catch
+    //     {
+    //         if (!string.IsNullOrWhiteSpace(raw)) errorMsg = raw;
+    //     }
+
+    //     return (false, errorMsg);
+    // }
     public async Task<(bool Success, string? Error)> RegisterAsync(RegisterRequestDto model)
     {
         var client = _httpClientFactory.CreateClient("AuthApi");
@@ -129,8 +173,108 @@ public class AuthService
 
         var raw = await response.Content.ReadAsStringAsync();
         _logger.LogWarning("[AuthService.Register] Registration failed: {Body}", raw);
-        return (false, "Registration failed. Please check your details and try again.");
+
+        // 💡 Extract specific error messages (e.g., string message or Identity error list)
+        string errorMsg = "Registration failed. Please check your details and try again.";
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                var errors = new List<string>();
+                foreach (var elem in doc.RootElement.EnumerateArray())
+                {
+                    if (elem.TryGetProperty("description", out var desc))
+                        errors.Add(desc.GetString() ?? "");
+                }
+                if (errors.Count > 0) errorMsg = string.Join(" ", errors);
+            }
+            else if (doc.RootElement.ValueKind == JsonValueKind.String)
+            {
+                errorMsg = doc.RootElement.GetString() ?? errorMsg;
+            }
+        }
+        catch
+        {
+            if (!string.IsNullOrWhiteSpace(raw)) errorMsg = raw;
+        }
+
+        return (false, errorMsg);
     }
+
+    public async Task<(bool Success, string? Error)> ConfirmEmailAsync(string userId, string code)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(code))
+            return (false, "Invalid confirmation link parameters.");
+
+        var client = _httpClientFactory.CreateClient("AuthApi");
+        
+        // 🔒 Uri.EscapeDataString protects '+' and '=' symbols in tokens from URL corruption
+        var requestUrl = $"api/auth/confirm-email?userId={Uri.EscapeDataString(userId)}&code={Uri.EscapeDataString(code)}";
+        var response = await client.GetAsync(requestUrl);
+
+        _logger.LogDebug("[AuthService.ConfirmEmail] Response Status: {StatusCode}", response.StatusCode);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var raw = await response.Content.ReadAsStringAsync();
+            return (false, string.IsNullOrWhiteSpace(raw) ? "Email confirmation failed." : raw);
+        }
+
+        // 🎉 Auto-login: Deserialize response tokens and activate user session
+        var content = await response.Content.ReadAsStringAsync();
+        try
+        {
+            var data = JsonSerializer.Deserialize<TokenResponseDto>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (data != null && !string.IsNullOrEmpty(data.Token))
+            {
+                await SetSessionAsync(data.Token, data.RefreshToken, data.Email ?? "", data.Roles ?? new List<string>());
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[AuthService.ConfirmEmail] Confirmed successfully, but could not parse auto-login payload.");
+        }
+
+        return (true, null);
+    }
+
+    // public async Task<(bool Success, string? Error)> ConfirmEmailAsync(string userId, string code)
+    // {
+    //     if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(code))
+    //         return (false, "Invalid confirmation link parameters.");
+
+    //     var client = _httpClientFactory.CreateClient("AuthApi");
+        
+    //     // 🔒 Uri.EscapeDataString protects '+' and '=' symbols in tokens from URL corruption
+    //     var requestUrl = $"api/auth/confirm-email?userId={Uri.EscapeDataString(userId)}&code={Uri.EscapeDataString(code)}";
+    //     var response = await client.GetAsync(requestUrl);
+
+    //     _logger.LogDebug("[AuthService.ConfirmEmail] Response Status: {StatusCode}", response.StatusCode);
+
+    //     if (!response.IsSuccessStatusCode)
+    //     {
+    //         var raw = await response.Content.ReadAsStringAsync();
+    //         return (false, string.IsNullOrWhiteSpace(raw) ? "Email confirmation failed." : raw);
+    //     }
+
+    //     // 🎉 Auto-login: Deserialize response tokens and activate user session
+    //     var content = await response.Content.ReadAsStringAsync();
+    //     try
+    //     {
+    //         var data = JsonSerializer.Deserialize<TokenResponseDto>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    //         if (data != null && !string.IsNullOrEmpty(data.Token))
+    //         {
+    //             await SetSessionAsync(data.Token, data.RefreshToken, data.Email ?? "", data.Roles ?? new List<string>());
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         _logger.LogWarning(ex, "[AuthService.ConfirmEmail] Confirmed successfully, but could not parse auto-login payload.");
+    //     }
+
+    //     return (true, null);
+    // }
     public async Task<bool> TryRefreshAsync()
     {
         if (string.IsNullOrEmpty(Email) || string.IsNullOrEmpty(RefreshToken))
