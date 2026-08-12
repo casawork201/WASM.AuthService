@@ -1,9 +1,12 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using TestWASM.AuthLib.Models;
+
 
 namespace TestWASM.AuthLib.Services;
 
@@ -220,6 +223,64 @@ public class AuthService
         catch
         {
             return new();
+        }
+    }
+
+    public async Task<HttpResponseMessage> SendAuthenticatedRequestAsync(string url, HttpMethod method, object? requestBody = null)
+    {
+        // Proactive refresh — avoid sending a request with a token about to expire
+        if (!string.IsNullOrEmpty(AccessToken) && IsNearExpiry(AccessToken, TimeSpan.FromMinutes(2)))
+        {
+            _logger.LogDebug("[AuthService.SendAuthenticatedRequest] Proactive refresh triggered...");
+            await TryRefreshAsync();
+        }
+
+        var client = _httpClientFactory.CreateClient("AuthApi");
+        var request = BuildRequest(url, method, requestBody);
+
+        var response = await client.SendAsync(request);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            _logger.LogDebug("[AuthService.SendAuthenticatedRequest] Got 401 — attempting reactive refresh...");
+            var refreshed = await TryRefreshAsync();
+
+            if (refreshed)
+            {
+                var retry = BuildRequest(url, method, requestBody);
+                response = await client.SendAsync(retry);
+            }
+        }
+
+        return response;
+    }
+
+    private HttpRequestMessage BuildRequest(string url, HttpMethod method, object? requestBody)
+    {
+        var request = new HttpRequestMessage(method, url);
+
+        if (!string.IsNullOrEmpty(AccessToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+
+        if (requestBody != null)
+        {
+            var json = JsonSerializer.Serialize(requestBody);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
+
+        return request;
+    }
+
+    private bool IsNearExpiry(string jwt, TimeSpan threshold)
+    {
+        try
+        {
+            var parsed = new JwtSecurityTokenHandler().ReadJwtToken(jwt);
+            return (parsed.ValidTo - DateTime.UtcNow) <= threshold;
+        }
+        catch
+        {
+            return false;
         }
     }
 }
