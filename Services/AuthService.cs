@@ -111,7 +111,23 @@ public class AuthService
         _logger.LogInformation("[AuthService.Login] User login successful.");
         return (true, null);
     }
+    public async Task<(bool Success, string? Error)> RegisterAsync(RegisterRequestDto model)
+    {
+        var client = _httpClientFactory.CreateClient("AuthApi");
+        var response = await client.PostAsJsonAsync("api/auth/register", model);
 
+        _logger.LogDebug("[AuthService.Register] Response Status: {StatusCode}", response.StatusCode);
+
+        if (response.IsSuccessStatusCode)
+        {
+            _logger.LogInformation("[AuthService.Register] Registration successful.");
+            return (true, null);
+        }
+
+        var raw = await response.Content.ReadAsStringAsync();
+        _logger.LogWarning("[AuthService.Register] Registration failed: {Body}", raw);
+        return (false, "Registration failed. Please check your details and try again.");
+    }
     public async Task<bool> TryRefreshAsync()
     {
         if (string.IsNullOrEmpty(Email) || string.IsNullOrEmpty(RefreshToken))

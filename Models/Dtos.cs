@@ -31,6 +31,14 @@ public class RegisterRequestDto
     [Compare("Password", ErrorMessage = "Security Keys do not match")]
     public string ConfirmPassword { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "First name is required.")]
+    [StringLength(50)]
+    public string FirstName { get; set; } = string.Empty!;
+
+    [Required(ErrorMessage = "Last name is required.")]
+    [StringLength(50)]
+    public string LastName { get; set; } = string.Empty!;
+
     public string? Role { get; set; } = "User";
 }
 public class JwtAuthOptionsDto

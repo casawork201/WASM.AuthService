@@ -1,69 +1,74 @@
-﻿@using Microsoft.AspNetCore.Components.Routing
+﻿@using TestWASM.AuthLib.Components
 @using TestWASM.AuthLib.Services
-
+@using Microsoft.AspNetCore.Components.Routing
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @inject AuthService AuthService
-@inject NavigationManager Nav
 @implements IDisposable
 
-@if (!AuthService.IsLoggedIn)
-{
-    <div class="nav-item px-3">
-        <NavLink class="nav-link" href="/login">
-            <span class="bi bi-box-arrow-in-right-nav-menu" aria-hidden="true"></span> Login 🔑
-        </NavLink>
-    </div>
-}
-else
-{
-    <div class="nav-item px-3 auth-user-block">
-        <div class="auth-user-info" @onclick="ToggleConfirm" role="button" title="Click to log out">
-            <span class="auth-avatar">@GetInitial()</span>
-            <span class="auth-email" title="@AuthService.Email">@AuthService.Email</span>
-        </div>
+<nav class="navbar navbar-expand-lg navbar-dark px-3 px-md-4 h-100">
+    <div class="container-fluid p-0">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="">
+            <span class="brand-icon">⚡</span>
+            <span class="fw-bold tracking-wide">CASA PAHAMPANG</span>
+        </a>
 
-        @if (showConfirm)
-        {
-            <div class="logout-confirm-box">
-                <span class="confirm-text">Log out? 🚪</span>
-                <div class="confirm-actions">
-                    <button class="btn-confirm btn-yes" @onclick="Logout" type="button">Yes ✅</button>
-                    <button class="btn-confirm btn-no" @onclick="CancelLogout" type="button">No ❌</button>
-                </div>
-            </div>
-        }
+        <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            <ul class="navbar-nav align-items-lg-center gap-1 gap-lg-2 mt-3 mt-lg-0">
+                <li class="nav-item">
+                    <NavLink class="nav-link px-3 py-2 rounded" href="" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill me-1"></span> Home 🏠
+                    </NavLink>
+                </li>
+
+                <li class="nav-item">
+                    <NavLink class="nav-link px-3 py-2 rounded" href="counter">
+                        <span class="bi bi-plus-square-fill me-1"></span> Counter 🔢
+                    </NavLink>
+                </li>
+
+                <li class="nav-item">
+                    <NavLink class="nav-link px-3 py-2 rounded" href="weather">
+                        <span class="bi bi-list-nested me-1"></span> Weather ⛅
+                    </NavLink>
+                </li>
+
+                <li class="nav-item">
+                    <NavLink class="nav-link px-3 py-2 rounded" href="scoreboard">
+                        <span class="bi bi-display me-1"></span> Scoreboard 🏀
+                    </NavLink>
+                </li>
+
+                <li class="nav-item">
+                    <NavLink class="nav-link px-3 py-2 rounded" href="scorekeeper">
+                        <span class="bi bi-controller me-1"></span> Scorekeeper 🎮
+                    </NavLink>
+                </li>
+
+                @if (AuthService.IsLoggedIn && AuthService.Roles.Contains("Admin", StringComparer.OrdinalIgnoreCase))
+                {
+                    <li class="nav-item">
+                        <NavLink class="nav-link px-3 py-2 rounded text-warning" href="admin">
+                            <span class="bi bi-shield-lock-fill me-1"></span> Admin Portal 🛡️
+                        </NavLink>
+                    </li>
+                }
+
+                <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
+                    <LoginDisplay />
+                </li>
+            </ul>
+        </div>
     </div>
-}
+</nav>
 
 @code {
-    private bool showConfirm = false;
-
     protected override void OnInitialized()
     {
         AuthService.OnChange += StateHasChanged;
-    }
-
-    private void ToggleConfirm()
-    {
-        showConfirm = !showConfirm;
-    }
-
-    private void CancelLogout()
-    {
-        showConfirm = false;
-    }
-
-    private async Task Logout()
-    {
-        showConfirm = false;
-        await AuthService.LogoutAsync();
-        Nav.NavigateTo("/", forceLoad: true);
-    }
-
-    private string GetInitial()
-    {
-        var email = AuthService.Email;
-        return string.IsNullOrEmpty(email) ? "?" : email[0].ToString().ToUpper();
     }
 
     public void Dispose()
@@ -73,100 +78,41 @@ else
 }
 
 <style>
-    .auth-user-block {
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        margin-top: 0.5rem;
-        padding-top: 0.75rem;
+    .brand-icon {
+        font-size: 1.25rem;
     }
 
-    .auth-user-info {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 0.4rem 0.5rem;
-        margin-bottom: 0.25rem;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background 0.15s ease;
+    .navbar-brand {
+        font-size: 1.15rem;
+        letter-spacing: 0.5px;
+        color: #ffffff !important;
     }
 
-    .auth-user-info:hover {
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .auth-avatar {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        min-width: 28px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #11998e, #38ef7d);
-        color: #fff;
-        font-weight: 700;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-    }
-
-    .auth-email {
-        font-size: 0.85rem;
-        color: rgba(255, 255, 255, 0.85);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .logout-confirm-box {
-        background: rgba(15, 23, 42, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 8px;
-        padding: 0.5rem 0.75rem;
-        margin-top: 0.35rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    }
-
-    .confirm-text {
-        font-size: 0.8rem;
-        color: #cbd5e1;
+    .navbar-nav .nav-link {
+        color: #cbd5e1 !important;
         font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s ease-in-out;
     }
 
-    .confirm-actions {
-        display: flex;
-        gap: 0.4rem;
+    .navbar-nav .nav-link:hover {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.08);
     }
 
-    .btn-confirm {
-        flex: 1;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        cursor: pointer;
-        border: none;
-        transition: all 0.15s ease;
+    .navbar-nav .nav-link.active {
+        color: #f59e0b !important;
+        background-color: rgba(245, 158, 11, 0.12);
+        box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.3);
     }
 
-    .btn-yes {
-        background-color: #ef4444;
-        color: #fff;
-    }
-
-    .btn-yes:hover {
-        background-color: #dc2626;
-    }
-
-    .btn-no {
-        background-color: #334155;
-        color: #cbd5e1;
-    }
-
-    .btn-no:hover {
-        background-color: #475569;
-        color: #fff;
+    @@media (max-width: 991.98px) {
+        .navbar-collapse {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-top: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
     }
 </style>
